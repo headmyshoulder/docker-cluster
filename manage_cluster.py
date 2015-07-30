@@ -20,7 +20,7 @@ def parse_cmd( argv ):
     
     init_parser = subparsers.add_parser( "init" , help="Init the cluster" )
     init_parser.add_argument( "image" , help="docker image" , type= str )
-    init_parser.add_argument( "--name" , help="image name" , type=str , default="node" )
+    init_parser.add_argument( "--name" , help="container name" , type=str , default="node" )
     init_parser.add_argument( "--host" , help="host name" , type=str , default="node" )
     init_parser.add_argument( "--number" , help="number of nodes" , type=int , default=4 )
 
@@ -41,6 +41,7 @@ def parse_cmd( argv ):
     copy_parser.add_argument( "target" , help="Target file of directory." )
 
     cmd_parser = subparsers.add_parser( "cmd" , help="Execute command on all nodes." )
+    cmd_parser.add_argument( "cmd" , help="Command" , type=str )
 
     args = parser.parse_args( argv[1:] )
     return args
@@ -108,11 +109,6 @@ def get_nodes( config ):
         nodes.append( [ name , host ] )
     return nodes
 
-
-
-
-image = "karsten/flink-base"
-
 def get_ip( node ):
     cmd = "docker inspect --format '{{ .NetworkSettings.IPAddress }}' " + node[0]
     ret = run_cmd( cmd )
@@ -140,7 +136,8 @@ def write_hosts( ips ):
         s += ip[1] + " " + ip[0] + "\n"
     with open('/tmp/hosts', 'w') as outf:
         outf.write(s)
-    os.system( "sudo mv /tmp/hosts /etc/hosts" )
+    call_cmd( "sudo mv /tmp/hosts /etc/hosts" )
+    call_cmd( "sudo service dnsmasq restart" )
 
 
 def run():
@@ -250,11 +247,16 @@ def copy( args ):
         for s in args.source:
             cmd += " " + s
         cmd += " " + node[1] + ":" + args.target
-        print cmd
         call_cmd( cmd )
 
 def cmd( args ):
-    raise Exception( "cmd not implemented yet." )
+    config = get_config()
+    nodes = get_nodes( config )
+    print args.cmd
+    for node in nodes:
+        cmd = 'ssh -n -f ' + node[1] + ' "' + args.cmd + '" '
+        call_cmd( cmd )
+        
 
 def main( argv ):
     
