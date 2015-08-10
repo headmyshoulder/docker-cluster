@@ -11,7 +11,8 @@ import json
 
 description = """Manage a cluster of docker containers."""
 
-directory = os.path.abspath( os.path.dirname( __file__ ) )
+# directory = os.path.abspath( os.path.dirname( __file__ ) )
+directory = os.path.abspath( os.getcwd() )
 config_file = os.path.join( directory  , "cluster" )
 
 def parse_cmd( argv ):
@@ -25,6 +26,7 @@ def parse_cmd( argv ):
     init_parser.add_argument( "--number" , help="number of nodes" , type=int , default=4 )
 
     run_parser = subparsers.add_parser( "run" , help = "Run the cluster." )
+    run_parser.add_argument( "--volume" , help="Volume string for docker." , type=str , nargs='*' )
 
     start_parser = subparsers.add_parser( "start" , help = "Start the cluster." )
 
@@ -141,13 +143,18 @@ def write_hosts( ips ):
     call_cmd( "sudo service dnsmasq restart" )
 
 
-def run():
+def run( args ):
     config = get_config()
     nodes = get_nodes( config )
     hostIp = get_host_ip()
     ips = []
     for node in nodes:
-        cmd = "docker run -d -h " + node[1] + " --dns=" + hostIp + " --name " + node[0] + " " + config[ "image" ]
+        cmd  = "docker run -d -h " + node[1] + " "
+        cmd += "--dns=" + hostIp + " "
+        cmd += "--name " + node[0] + " "
+        for v in args.volume:
+            cmd += "-v " + v + " "
+        cmd += config[ "image" ]
         ret = run_cmd( cmd )
         id = ret[1][:-1]
         if ret[0]:
@@ -264,7 +271,7 @@ def main( argv ):
     args = parse_cmd( argv )
         
     if args.command == "run":
-        run()
+        run( args )
     if args.command == "start":
         start()
     elif args.command == "stop":
