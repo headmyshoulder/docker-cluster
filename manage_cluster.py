@@ -134,6 +134,7 @@ def write_hosts( ips ):
         s = s[:pos] + marker + "\n"
     for ip in ips:
         s += ip[1] + " " + ip[0] + "\n"
+    s += get_host_ip() + " cluster_master" + "\n"
     with open('/tmp/hosts', 'w') as outf:
         outf.write(s)
     call_cmd( "sudo mv /tmp/hosts /etc/hosts" )
