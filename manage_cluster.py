@@ -24,6 +24,7 @@ def parse_cmd( argv ):
     init_parser.add_argument( "--number" , help="number of nodes" , type=int , default=4 )
 
     run_parser = subparsers.add_parser( "run" , help = "Run the cluster." )
+    run_parser.add_argument( "--volume" , help="Volume string for docker." , type=str , nargs='*' )
 
     start_parser = subparsers.add_parser( "start" , help = "Start the cluster." )
 
@@ -144,13 +145,14 @@ def write_hosts( ips ):
         s = s[:pos] + marker + "\n"
     for ip in ips:
         s += ip[1] + " " + ip[0] + "\n"
+    s += get_host_ip() + " cluster_master" + "\n"
     with open('/tmp/hosts', 'w') as outf:
         outf.write(s)
     call_cmd( "sudo mv /tmp/hosts /etc/hosts" )
     call_cmd( "sudo service dnsmasq restart" )
 
 
-def run():
+def run( args ):
     config = get_config()
     nodes = get_nodes( config )
     hostIp = get_host_ip()
@@ -294,7 +296,7 @@ def main( argv ):
     args = parse_cmd( argv )
         
     if args.command == "run":
-        run()
+        run( args )
     if args.command == "start":
         start()
     elif args.command == "stop":
