@@ -11,8 +11,7 @@ import json
 
 description = """Manage a cluster of docker containers."""
 
-directory = os.path.abspath( os.path.dirname( __file__ ) )
-config_file = os.path.join( directory  , "cluster" )
+config_file = os.path.join( os.getcwd() , "cluster_config" )
 
 def parse_cmd( argv ):
     parser = argparse.ArgumentParser( description = description , formatter_class = argparse.ArgumentDefaultsHelpFormatter )
@@ -42,6 +41,14 @@ def parse_cmd( argv ):
 
     cmd_parser = subparsers.add_parser( "cmd" , help="Execute command on all nodes." )
     cmd_parser.add_argument( "cmd" , help="Command" , type=str )
+
+    config_parser = subparsers.add_parser( "config" , help="Configure the cluster." )
+    config_parser.add_argument( "--image" , help="docker image" , type= str )
+    config_parser.add_argument( "--name" , help="container name" , type=str )
+    config_parser.add_argument( "--host" , help="host name" , type=str )
+    config_parser.add_argument( "--number" , help="number of nodes" , type=int )
+    config_parser.add_argument( "--mount" , help="mount" , type=str , nargs=2 )
+
 
     args = parser.parse_args( argv[1:] )
     return args
@@ -83,6 +90,9 @@ def get_default_config():
 def create_config( config ):
     if os.path.isfile( config_file ):
         error( "Config already exist in current directory." )
+    json.dump( config , open( config_file , "w" ) , indent = 2 )
+
+def update_config( config ):
     json.dump( config , open( config_file , "w" ) , indent = 2 )
 
 def get_number_string( i , n ):
@@ -146,7 +156,12 @@ def run():
     hostIp = get_host_ip()
     ips = []
     for node in nodes:
-        cmd = "docker run -d -h " + node[1] + " --dns=" + hostIp + " --name " + node[0] + " " + config[ "image" ]
+        cmd  = "docker run -d -h " + node[1]
+        cmd +=" --dns=" + hostIp
+        cmd += " --name " + node[0]
+        for m in config[ "mount" ]:
+            cmd += " -v " + m[0] + ":" + m[1]
+        cmd += " " + config[ "image" ]
         ret = run_cmd( cmd )
         id = ret[1][:-1]
         if ret[0]:
@@ -154,6 +169,7 @@ def run():
         ip = get_ip( node )
         ips.append( [ node[1] , ip ] )
         print "Created container " + node[0] + ", id = " + id + ", ip = " + ip
+    ips.append( [ "master" , get_host_ip() ] )
     
     write_hosts( ips )
     with open( "hosts" , "w" ) as f:
@@ -236,6 +252,7 @@ def init( args ):
     config[ "image" ] = args.image
     config[ "number" ] = args.number
     config[ "host" ] = args.host
+    config[ "mount" ] = []
     create_config( config )
 
 def copy( args ):
@@ -256,7 +273,21 @@ def cmd( args ):
     for node in nodes:
         cmd = 'ssh -n -f ' + node[1] + ' "' + args.cmd + '" '
         call_cmd( cmd )
-        
+
+
+def config( args ):
+    config = get_config()
+    if args.name:
+        config[ "name" ] = args.name
+    if args.host:
+        config[ "host" ] = args.host
+    if args.number:
+        config[ "number" ] = args.number
+    if args.image:
+        config[ "image"] = args.image
+    if args.mount:
+        config[ "mount" ].append( args.mount )
+    update_config( config   )
 
 def main( argv ):
     
@@ -278,6 +309,8 @@ def main( argv ):
         copy( args )
     elif args.command == "cmd":
         cmd( args )
+    elif args.command == "config":
+        config( args )
 
 
 
